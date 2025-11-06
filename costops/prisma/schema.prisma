@@ -1,0 +1,129 @@
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         Membership[]
+  connections   Connection[]
+  subscriptions CloudSubscription[]
+  rulesConfig   RulesConfig?
+  recommendations Recommendation[]
+  prEvents      PullRequestEvent[]
+  auditLogs     AuditLog[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  memberships   Membership[]
+}
+
+model Membership {
+  id            String   @id @default(cuid())
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  user          User @relation(fields: [userId], references: [id])
+  userId        String
+  role          String   // "owner" | "admin" | "viewer"
+  createdAt     DateTime @default(now())
+}
+
+model Connection {
+  id            String   @id @default(cuid())
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  type          String   // "azure" | "github" | "slack"
+  status        String   // "connected" | "pending" | "error"
+  data          Json     // encrypted config (tenantId, clientId, etc.)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CloudSubscription {
+  id            String   @id @default(cuid())
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  provider      String   // "azure"
+  subscriptionId String  @unique
+  name          String?
+  env           String?  // prod|staging|dev from tag heuristics
+  createdAt     DateTime @default(now())
+}
+
+model CloudResource {
+  id            String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  resourceId    String   @unique
+  type          String   // "Microsoft.Compute/virtualMachines", etc.
+  name          String
+  rg            String
+  location      String
+  tags          Json
+  costMonthly   Float?   // latest snapshot est
+  metrics       Json?    // summarized metrics (avgCpu, p95Cpu...)
+  discoveredAt  DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Recommendation {
+  id            String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  resourceId    String
+  ruleId        String
+  title         String
+  description   String
+  impactMonthly Float
+  confidence    Float
+  status        String   // "open" | "dismissed" | "in_pr" | "applied"
+  details       Json     // payload for script/PR
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PullRequestEvent {
+  id            String   @id @default(cuid())
+  organizationId String
+  recommendationId String
+  provider       String  // "github"
+  repo           String
+  prNumber       Int
+  branch         String
+  status         String  // "opened" | "merged" | "closed"
+  url            String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model RulesConfig {
+  id            String   @id @default(cuid())
+  organizationId String  @unique
+  config        Json     // thresholds per rule
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  organizationId String
+  actorUserId   String?
+  action        String
+  meta          Json
+  createdAt     DateTime @default(now())
+}
