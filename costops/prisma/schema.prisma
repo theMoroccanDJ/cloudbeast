@@ -114,6 +114,7 @@ model PullRequestEvent {
 model RulesConfig {
   id            String   @id @default(cuid())
   organizationId String  @unique
+  organization  Organization @relation(fields: [organizationId], references: [id])
   config        Json     // thresholds per rule
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
