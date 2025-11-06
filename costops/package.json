@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
+    "@octokit/auth-app": "^6.0.4",
     "@prisma/client": "5.11.0",
     "@radix-ui/react-slot": "^1.0.2",
     "class-variance-authority": "^0.7.0",
@@ -19,6 +20,7 @@
     "next": "14.2.3",
     "next-auth": "^4.24.7",
     "nodemailer": "^6.9.11",
+    "octokit": "^3.2.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tailwind-merge": "^2.2.2",
