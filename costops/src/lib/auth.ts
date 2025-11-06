@@ -1,9 +1,13 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import GitHubProvider from "next-auth/providers/github";
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
+
+type SessionWithOrg = Session & {
+  user: NonNullable<Session["user"]> & { orgId: string };
+};
 
 const emailServer =
   process.env.EMAIL_SERVER_HOST && process.env.EMAIL_SERVER_USER
@@ -20,7 +24,7 @@ const emailServer =
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
   providers: [
     GitHubProvider({
@@ -39,12 +43,45 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    session: async ({ session, user }) => {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user?.id) {
+        token.sub = user.id;
       }
+
+      if (token.sub && typeof token.orgId === "undefined") {
+        const membership = await prisma.membership.findFirst({
+          where: { userId: token.sub },
+          select: { organizationId: true },
+        });
+
+        token.orgId = membership?.organizationId ?? null;
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        if (token.sub) {
+          session.user.id = token.sub;
+        }
+
+        if (typeof token.orgId === "string") {
+          session.user.orgId = token.orgId;
+        } else {
+          delete session.user.orgId;
+        }
+      }
+
       return session;
     },
   },
   debug: process.env.NODE_ENV === "development",
 };
+
+export function requireOrg(
+  session: Session | null | undefined,
+): asserts session is SessionWithOrg {
+  if (!session?.user?.orgId) {
+    throw new Error("User must belong to an organization to access this resource.");
+  }
+}
