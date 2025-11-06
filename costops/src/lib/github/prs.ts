@@ -113,9 +113,15 @@ function sanitizeBranchName(candidate: string): string {
   return cleaned.length > 0 ? cleaned : `costops-recommendation`;
 }
 
+interface OpenFixPRForRecommendationOptions {
+  repo?: string;
+  baseBranch?: string;
+}
+
 export async function openFixPRForRecommendation(
   organizationId: string,
   recommendationId: string,
+  options: OpenFixPRForRecommendationOptions = {},
 ): Promise<{ url: string; number: number; branch: string; htmlUrl: string }> {
   const recommendation = await prisma.recommendation.findFirst({
     where: { id: recommendationId, organizationId },
@@ -136,12 +142,12 @@ export async function openFixPRForRecommendation(
   }
 
   const details = (recommendation.details as RecommendationDetails | null) ?? {};
-  const repo = details.repo;
+  const repo = options.repo ?? details.repo;
   if (!repo) {
     throw new Error(`Recommendation ${recommendation.id} is missing a target repository in details.repo.`);
   }
 
-  const baseBranch = details.baseBranch ?? "main";
+  const baseBranch = options.baseBranch ?? details.baseBranch ?? "main";
   const branchName = sanitizeBranchName(details.branchName ?? `costops/recommendation-${recommendation.id}`);
   const iacFile = await findIaCFileForResource(repo, resource);
 
